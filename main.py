@@ -12,6 +12,7 @@ O script:
 - Calcula rota via OSRM (driving/walking/cycling)
 - Exibe distância (km) e tempo (min) no popup do destino
 - Abre mapa interativo em janela WebView separada (para não quebrar Tkinter)
+- Possui enderecos pre-definidos de unidades de saude para pontos de coleta
 """
 
 import os
@@ -27,6 +28,7 @@ from tkinter import messagebox
 import folium
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
+from tkinter import ttk
 
 logging.basicConfig(
     filename="map_app.log",
@@ -36,6 +38,40 @@ logging.basicConfig(
 
 MAP_FILE = os.path.abspath("map.html")
 TEMP_LOC_FILE = os.path.join(tempfile.gettempdir(), "map_app_user_loc.json")
+
+
+# ==========================================
+# Enderecos de unidades de saude pre-definidos, para coleta de recursos
+# ==========================================
+ENDERECOS_PREDEFINIDOS = [
+    "Rua Barão do Serro Azul, 198 - Centro, Curitiba - PR", # okay
+    "Rua Alceu Chichorro, 314 - Bairro Alto, Curitiba - PR", # okay
+    "Rua 24 de Maio, 807 - Centro, Curitiba", #okay 
+    "Rua Prof. Nivaldo Braga, 1571 - Capão da Imbuia, Curitiba - PR", # okay
+    "Rua Manoel Martins de Abreu, 830 - Prado Velho, Curitiba - PR", # okay
+    "Rua São Paulo, 1495 - Guaíra, Curitiba - PR", # okay
+    "Rua XV de Novembro, Curitiba, PR", # okay
+    "Rua Sergipe, 59 - Guaíra, Curitiba - PR", # okay
+    "Rua Conde dos Arcos, 295 - Lindoia, Curitiba - PR", # okay
+    "Rua Waldemar Kost, 650 - Hauer, Curitiba - PR", # okay
+    "Rua André Ferreira Camargo, 188 - Boqueirão, Curitiba - PR", # okay
+    "Rua Professora Maria de Assumpção, 2590 - Boqueirão, Curitiba - PR", # okay
+    "Rua Canal Belém - 6427 - Uberaba, Curitiba - PR", # okay
+    "Rua Pedro Bocchino, 750 - Vila Oficinas, Curitiba - PR", # erro
+    "Rua Cap. Leônidas Marques, 1392 - Uberaba, Curitiba - PR", # okay
+    "Rua Isaías Ferreira Silva, 150 - Solitude, Curitiba - PR", # erro
+    "Rua Ladislau Mikosz, 133 - Cajuru, Curitiba - PR", # okay
+    "Rua Roraima, 1790 - Vila Oficinas, Curitiba - PR", # erro
+    "Rua Pedro Violani, 364 - Cajuru, Curitiba - PR", # okay
+    "Rua Sebastião Marcos Luiz, 1197 - Cajuru, Curitiba - PR", # okay
+    "Rua Roger Bacon, 150 - Atuba, Colombo - PR", # okay
+
+
+
+
+]
+# ==========================================
+
 
 
 # ---------------------------
@@ -73,6 +109,7 @@ def webview_get_location_process(out_file: str, timeout_s: int = 10):
                     with open(self.out_file, "w", encoding="utf-8") as f:
                         json.dump(payload, f)
                     # fecha a janela (chamada do JS)
+
                     # A chamada abaixo funciona quando chamada pelo JS exposto; mas para garantir,
                     # também definimos timeout que fecha a janela mais tarde.
                     try:
@@ -220,18 +257,42 @@ def obter_localizacao_usuario_ip() -> tuple | None:
 # ---------------------------
 # Geocoding para endereços
 # ---------------------------
-def geocode_endereco(endereco: str):
-    geolocator = Nominatim(user_agent="map_app", timeout=6)
-    try:
-        loc = geolocator.geocode(endereco)
-        if loc:
-            return float(loc.latitude), float(loc.longitude)
-        else:
-            return None
-    except Exception:
-        logging.exception("Erro no geocoder para: %s", endereco)
-        return None
 
+
+# Foi feita alteracoes na funcao geocode_endereco, pois com a implementacao de
+# enderecos pre-definidos, a funcao dava timeout antes de comecar a procurar
+# o local.
+
+def geocode_endereco(endereco: str, tentativas=3):
+    geolocator = Nominatim(user_agent="map_app", timeout=15)
+    
+    for tentativa in range(tentativas):
+        try:
+            loc = geolocator.geocode(endereco)
+            if loc:
+                return float(loc.latitude), float(loc.longitude)
+            else:
+                return None
+                
+        except GeocoderTimedOut:
+            if tentativa < tentativas - 1:
+                time.sleep(2)
+            else:
+                logging.exception("Erro no geocoder para: %s", endereco)
+                return None
+                
+        except GeocoderUnavailable:
+            if tentativa < tentativas - 1:
+                time.sleep(2)
+            else:
+                logging.exception("Erro no geocoder para: %s", endereco)
+                return None
+                
+        except Exception:
+            logging.exception("Erro no geocoder para: %s", endereco)
+            return None
+    
+    return None
 
 # ---------------------------
 # OSRM routing
@@ -248,6 +309,8 @@ def perfil_osrm_para_query(perfil: str) -> str:
         return "walking"
     if perfil == "bike":
         return "cycling"
+    if perfil == "bus":
+        return "driving"  # adicione esta linha
     # fallback
     return "driving"
 
@@ -340,11 +403,17 @@ def gerar_mapa_com_rota(orig_lat, orig_lon, dest_lat, dest_lon, dest_label, perf
 # ---------------------------
 # AÇÃO do botão — lógica principal
 # ---------------------------
-def buscar_e_mostrar(entry_origin: tk.Entry, entry_dest: tk.Entry, use_gps_var: tk.IntVar, perfil_var: tk.StringVar):
-    destino_text = entry_dest.get().strip()
+def buscar_e_mostrar(entry_origin: tk.Entry, combo_dest: tk.Entry, use_gps_var: tk.IntVar, perfil_var: tk.StringVar):
+    destino_text = combo_dest.get().strip()
     if not destino_text:
         messagebox.showwarning("Aviso", "Digite o destino.")
         return
+    try:
+        if os.path.exists(MAP_FILE):
+            os.remove(MAP_FILE)
+    except Exception:
+        pass
+
 
     # determinar origem
     orig_coords = None
@@ -394,14 +463,7 @@ def buscar_e_mostrar(entry_origin: tk.Entry, entry_dest: tk.Entry, use_gps_var: 
 
     perfil_ui = perfil_var.get()  # 'car', 'foot', 'bike', 'bus'
 
-    # se usuário escolheu 'bus', avisar que usamos walking como fallback
-    perfil_for_osrm = perfil_ui
-    if perfil_ui == "bus":
-        # OSRM não tem transporte público; avisar
-        perfil_for_osrm = "foot"
-        messagebox.showinfo("Observação", "Perfil 'Ônibus' não é suportado pelo OSRM. Usaremos 'a pé' como aproximação.")
-
-    result = gerar_mapa_com_rota(orig_lat, orig_lon, dest_lat, dest_lon, destino_text, perfil_ui=perfil_for_osrm)
+    result = gerar_mapa_com_rota(orig_lat, orig_lon, dest_lat, dest_lon, destino_text, perfil_ui=perfil_ui)
     if not result or "file" not in result:
         messagebox.showerror("Erro", "Erro ao gerar o mapa/rota.")
         return
@@ -456,9 +518,9 @@ def criar_interface():
     chk = tk.Checkbutton(frame, text="Usar minha localização (GPS ou IP - Instável)", variable=use_gps_var)
     chk.pack(anchor="w", pady=(0, 8))
 
-    tk.Label(frame, text="Destino (endereço) *", anchor="w").pack(fill="x")
-    entry_dest = tk.Entry(frame, font=("Arial", 12))
-    entry_dest.pack(fill="x", pady=(4, 6))
+    tk.Label(frame, text="Destino (selecione ou digite) *", anchor="w").pack(fill="x")
+    combo_dest = ttk.Combobox(frame, values=ENDERECOS_PREDEFINIDOS, font=("Arial", 12))
+    combo_dest.pack(fill="x", pady=(4, 6))
 
     # modo de transporte
     mode_frame = tk.Frame(frame)
@@ -468,11 +530,12 @@ def criar_interface():
     tk.Radiobutton(mode_frame, text="Carro", variable=perfil_var, value="car").pack(side="left", padx=6)
     tk.Radiobutton(mode_frame, text="A pé", variable=perfil_var, value="foot").pack(side="left", padx=6)
     tk.Radiobutton(mode_frame, text="Bicicleta", variable=perfil_var, value="bike").pack(side="left", padx=6)
-
+    tk.Radiobutton(mode_frame, text="Ônibus", variable=perfil_var, value="bus").pack(side="left", padx=6)
+    
     btn_frame = tk.Frame(frame)
     btn_frame.pack(fill="x", pady=(10, 0))
     btn = tk.Button(btn_frame, text="Gerar rota e abrir mapa", width=24,
-                    command=lambda: buscar_e_mostrar(entry_origin, entry_dest, use_gps_var, perfil_var))
+                command=lambda: buscar_e_mostrar(entry_origin, combo_dest, use_gps_var, perfil_var))
     btn.pack(side="left", padx=(0, 8))
 
     info_label = tk.Label(frame, text="O mapa com rota abrirá em uma janela separada.\nCaso o GPS não funcione, será usado IP para localizar você.", fg="gray")
