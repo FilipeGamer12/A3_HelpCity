@@ -41,38 +41,37 @@ TEMP_LOC_FILE = os.path.join(tempfile.gettempdir(), "map_app_user_loc.json")
 
 
 # ==========================================
-# Enderecos de unidades de saude pre-definidos, para coleta de recursos
+# Enderecos de unidades de saude pre-definidos.
 # ==========================================
-ENDERECOS_PREDEFINIDOS = [
-    "Rua Barão do Serro Azul, 198 - Centro, Curitiba - PR", # okay
-    "Rua Alceu Chichorro, 314 - Bairro Alto, Curitiba - PR", # okay
-    "Rua 24 de Maio, 807 - Centro, Curitiba", #okay 
-    "Rua Prof. Nivaldo Braga, 1571 - Capão da Imbuia, Curitiba - PR", # okay
-    "Rua Manoel Martins de Abreu, 830 - Prado Velho, Curitiba - PR", # okay
-    "Rua São Paulo, 1495 - Guaíra, Curitiba - PR", # okay
-    "Rua XV de Novembro, Curitiba, PR", # okay
-    "Rua Sergipe, 59 - Guaíra, Curitiba - PR", # okay
-    "Rua Conde dos Arcos, 295 - Lindoia, Curitiba - PR", # okay
-    "Rua Waldemar Kost, 650 - Hauer, Curitiba - PR", # okay
-    "Rua André Ferreira Camargo, 188 - Boqueirão, Curitiba - PR", # okay
-    "Rua Professora Maria de Assumpção, 2590 - Boqueirão, Curitiba - PR", # okay
-    "Rua Canal Belém - 6427 - Uberaba, Curitiba - PR", # okay
-    "Rua Pedro Bocchino, 750 - Vila Oficinas, Curitiba - PR", # erro
-    "Rua Cap. Leônidas Marques, 1392 - Uberaba, Curitiba - PR", # okay
-    "Rua Isaías Ferreira Silva, 150 - Solitude, Curitiba - PR", # erro
-    "Rua Ladislau Mikosz, 133 - Cajuru, Curitiba - PR", # okay
-    "Rua Roraima, 1790 - Vila Oficinas, Curitiba - PR", # erro
-    "Rua Pedro Violani, 364 - Cajuru, Curitiba - PR", # okay
-    "Rua Sebastião Marcos Luiz, 1197 - Cajuru, Curitiba - PR", # okay
-    "Rua Roger Bacon, 150 - Atuba, Colombo - PR", # okay
-
-
-
-
-]
+# Adicionado nomes mais simples de se entender
+# inves de ficar apenas no endereco,
+# para melhor compreensao do usuario.
 # ==========================================
+ENDERECOS_PREDEFINIDOS = {
+
+    "Unidade de Saúde Acesso Saúde - Barão do Serro Azul": "Rua Barão do Serro Azul, 198 - Centro, Curitiba - PR", # okay
+    "Unidade de Saúde Bairro Alto - Alceu Chichorro": "Rua Alceu Chichorro, 314 - Bairro Alto, Curitiba - PR", # okay
+    "Unidade de Saúde Ouvidor Pardinho": "Rua 24 de Maio, 807 - Centro, Curitiba", # okay
+    "Unidade de Saúde Iracema": "Rua Prof. Nivaldo Braga, 1571 - Capão da Imbuia, Curitiba - PR", # okay
+    "Unidade de Saúde Capanema": "Rua Manoel Martins de Abreu, 830 - Prado Velho, Curitiba - PR", # okay
+    "Unidade de Saúde Guaíra - R. São Paulo": "Rua São Paulo, 1495 - Guaíra, Curitiba - PR", # okay
+    "Unidade de Saúde Parolin - R. Sergipe": "Rua Sergipe, 59 - Guaíra, Curitiba - PR", # okay
+    "Unidade de Saúde Fanny Lindóia": "Rua Conde dos Arcos, 295 - Lindoia, Curitiba - PR", # okay
+    "Unidade de Saúde Vila Hauer": "Rua Waldemar Kost, 650 - Hauer, Curitiba - PR", # okay
+    "Unidade de Saúde Tapajós": "Rua André Ferreira Camargo, 188 - Boqueirão, Curitiba - PR", # okay
+    "UPA 24h Boqueirão": "Rua Professora Maria de Assumpção, 2590 - Boqueirão, Curitiba - PR", # okay
+    "Unidade de Saúde São Paulo - Canal Belém": "Rua Canal Belém - 6427 - Uberaba, Curitiba - PR", # okay
+    "Unidade de Saúde Uberaba de Cima": "Rua Cap. Leônidas Marques, 1392 - Uberaba, Curitiba - PR", # okay
+    "Unidade de Saúde São Domingos - Ladislau Mikosz": "Rua Ladislau Mikosz, 133 - PR", # okay
+    "Unidade de Saúde Trindade II": "Rua Sebastião Marcos Luiz, 1197 - Cajuru, Curitiba - PR", # okay
+    "Unidade de Saúde Atuba - Colombo": "Rua Roger Bacon, 150 - Atuba, Colombo - PR", # okay
+
+}
 
 
+
+ENDERECOS_NOMES = list(ENDERECOS_PREDEFINIDOS.keys())
+ENDERECOS_COMPLETOS = list(ENDERECOS_PREDEFINIDOS.values())
 
 # ---------------------------
 # Utilitários de rede / IO
@@ -141,7 +140,7 @@ def webview_get_location_process(out_file: str, timeout_s: int = 10):
         <!doctype html>
         <html>
         <head><meta charset="utf-8"><title>Obter localização</title></head>
-        <body>
+        <body style="background-color: white; padding: 20px; font-family: Arial;">
         <p>Solicitando localização...</p>
         <script>
         function success(pos) {
@@ -174,7 +173,8 @@ def webview_get_location_process(out_file: str, timeout_s: int = 10):
         """
 
         # cria janela - pequena e sem borda é possível, mas mantemos simples
-        window = webview.create_window("Obter localização (GPS) — permita quando solicitado", html=html, js_api=api, width=400, height=150)
+        window = webview.create_window("Obter localização (GPS) — permita quando solicitado", 
+                                       html=html, js_api=api, width=500, height=250)
         webview.start(http_server=True)  # http_server True facilita a execução do HTML inline
 
     except Exception:
@@ -300,7 +300,7 @@ def geocode_endereco(endereco: str, tentativas=3):
 def perfil_osrm_para_query(perfil: str) -> str:
     """
     Mapear perfil UI -> OSRM profile
-    UI: 'car', 'foot', 'bike', 'bus' (bus mapeado para walking como fallback)
+    UI: 'car', 'foot', 'bike'
     OSRM profiles: driving, walking, cycling
     """
     if perfil == "car":
@@ -309,8 +309,6 @@ def perfil_osrm_para_query(perfil: str) -> str:
         return "walking"
     if perfil == "bike":
         return "cycling"
-    if perfil == "bus":
-        return "driving"  # adicione esta linha
     # fallback
     return "driving"
 
@@ -361,10 +359,8 @@ def gerar_mapa_com_rota(orig_lat, orig_lon, dest_lat, dest_lon, dest_label, perf
             icon=folium.Icon(color="red", icon="flag")
         ).add_to(mapa)
 
-        # obter rota
         rota = obter_rota_osrm(orig_lat, orig_lon, dest_lat, dest_lon, perfil_ui=perfil_ui)
         if not rota:
-            # salva mapa sem rota, mas avisa
             folium.map.Marker(
                 [dest_lat, dest_lon],
                 popup=f"{dest_label} (rota indisponível)",
@@ -372,14 +368,11 @@ def gerar_mapa_com_rota(orig_lat, orig_lon, dest_lat, dest_lon, dest_label, perf
             mapa.save(MAP_FILE)
             return {"file": MAP_FILE, "distance_km": None, "duration_min": None}
 
-        # desenha polyline
         folium.PolyLine(rota["poly"], color="green", weight=5, opacity=0.85).add_to(mapa)
 
-        # distancia e tempo
         dist_km = rota["distance_m"] / 1000.0
         dur_min = rota["duration_s"] / 60.0
 
-        # popup com detalhes (formatado)
         popup_html = f"""
         <b>{dest_label}</b><br>
         Distância: {dist_km:.2f} km<br>
@@ -392,6 +385,27 @@ def gerar_mapa_com_rota(orig_lat, orig_lon, dest_lat, dest_lon, dest_label, perf
             icon=folium.Icon(color="red")
         ).add_to(mapa)
 
+        # popup no canto inferior esquerdo do html pra mostrar origem e destino do usuario
+        info_html = f"""
+        <div style="position: fixed; 
+                    bottom: 10px; 
+                    left: 10px; 
+                    width: 300px; 
+                    background-color: white; 
+                    border: 2px solid grey; 
+                    border-radius: 5px;
+                    padding: 10px;
+                    font-family: Arial;
+                    font-size: 12px;
+                    z-index: 9999;
+                    box-shadow: 2px 2px 6px rgba(0,0,0,0.3);">
+            <b>📍 Origem:</b><br>Sua localização<br><br>
+            <b>🎯 Destino:</b><br>{dest_label}
+        </div>
+        """
+        # adiciona o html
+        mapa.get_root().html.add_child(folium.Element(info_html))
+
         mapa.save(MAP_FILE)
         return {"file": MAP_FILE, "distance_km": dist_km, "duration_min": dur_min}
 
@@ -399,15 +413,24 @@ def gerar_mapa_com_rota(orig_lat, orig_lon, dest_lat, dest_lon, dest_label, perf
         logging.exception("Erro ao gerar mapa com rota")
         return None
 
-
 # ---------------------------
 # AÇÃO do botão — lógica principal
 # ---------------------------
-def buscar_e_mostrar(entry_origin: tk.Entry, combo_dest: tk.Entry, use_gps_var: tk.IntVar, perfil_var: tk.StringVar):
-    destino_text = combo_dest.get().strip()
-    if not destino_text:
+def buscar_e_mostrar(entry_origin: tk.Entry, combo_dest: tk.Entry, use_gps_var: tk.IntVar, perfil_var: tk.StringVar, exibir_nomes: tk.IntVar):
+    destino_selecionado = combo_dest.get().strip()
+    if not destino_selecionado:
         messagebox.showwarning("Aviso", "Digite o destino.")
         return
+    
+
+     # Se estiver exibindo nomes, converte o nome para o endereco completo do local
+    if exibir_nomes.get() == 1:
+        destino_text = ENDERECOS_PREDEFINIDOS.get(destino_selecionado, destino_selecionado)
+    # Se estiver exibindo endereços, usa direto
+    else:
+        destino_text = destino_selecionado
+
+    # Remove o arquivo gerado html antigo para forcar novo calculo
     try:
         if os.path.exists(MAP_FILE):
             os.remove(MAP_FILE)
@@ -461,7 +484,7 @@ def buscar_e_mostrar(entry_origin: tk.Entry, combo_dest: tk.Entry, use_gps_var: 
     dest_lat, dest_lon = dest_gc
     orig_lat, orig_lon = orig_coords
 
-    perfil_ui = perfil_var.get()  # 'car', 'foot', 'bike', 'bus'
+    perfil_ui = perfil_var.get()  # 'car', 'foot', 'bike'
 
     result = gerar_mapa_com_rota(orig_lat, orig_lon, dest_lat, dest_lon, destino_text, perfil_ui=perfil_ui)
     if not result or "file" not in result:
@@ -502,8 +525,17 @@ def abrir_mapa_processo(caminho_html: str):
 def criar_interface():
     janela = tk.Tk()
     janela.title("Roteador — Folium + OSRM")
-    janela.geometry("620x280")
+    janela.geometry("620x300")
     janela.resizable(False, False)
+
+
+    # Label com o intuito da aplicacao
+
+    tk.Label(
+        janela,
+        text="Aplicação para localização de unidades de saúde para coleta de recursos.",
+        font=("Arial", 13, "bold"),
+        ).pack(pady=(10, 0))
 
     pad = 10
     frame = tk.Frame(janela)
@@ -513,16 +545,38 @@ def criar_interface():
     entry_origin = tk.Entry(frame, font=("Arial", 12))
     entry_origin.pack(fill="x", pady=(4, 8))
 
-    # checkbox usar GPS
     use_gps_var = tk.IntVar(value=0)
     chk = tk.Checkbutton(frame, text="Usar minha localização (GPS ou IP - Instável)", variable=use_gps_var)
     chk.pack(anchor="w", pady=(0, 8))
 
-    tk.Label(frame, text="Destino (selecione ou digite) *", anchor="w").pack(fill="x")
-    combo_dest = ttk.Combobox(frame, values=ENDERECOS_PREDEFINIDOS, font=("Arial", 12))
+    # Frame para o label e botao de toggle ficarem na mesma reta
+
+    dest_frame = tk.Frame(frame)
+    dest_frame.pack(fill="x", pady=(0, 6))
+    tk.Label(dest_frame, text="Destino (selecione ou digite) *", anchor="w").pack(side="left")
+    
+    # variavel que controla se exibe nomes (1) ou enderecos completos (0)
+    # e combobox inicia mostrando nomes das unidades
+    exibir_nomes = tk.IntVar(value=1)
+    combo_dest = ttk.Combobox(frame, values=ENDERECOS_NOMES, font=("Arial", 12))
     combo_dest.pack(fill="x", pady=(4, 6))
 
-    # modo de transporte
+    # funcao que alterna entre mostrar nomes e enderecos completos
+    def alternar_exibicao():
+        if exibir_nomes.get() == 1:
+            exibir_nomes.set(0)
+            combo_dest['values'] = ENDERECOS_COMPLETOS
+            btn_toggle.config(text="Exibir: Endereços ✓")
+        else:
+            exibir_nomes.set(1)
+            combo_dest['values'] = ENDERECOS_NOMES
+            btn_toggle.config(text="Exibir: Nomes ✓")
+        combo_dest.set('')
+    
+    # botao pra alternar o modo da exibicao la
+    btn_toggle = tk.Button(dest_frame, text="Exibir: Nomes ✓", command=alternar_exibicao)
+    btn_toggle.pack(side="right", padx=(5, 0))
+
     mode_frame = tk.Frame(frame)
     mode_frame.pack(fill="x", pady=(6, 6))
     tk.Label(mode_frame, text="Modo:").pack(side="left")
@@ -530,12 +584,11 @@ def criar_interface():
     tk.Radiobutton(mode_frame, text="Carro", variable=perfil_var, value="car").pack(side="left", padx=6)
     tk.Radiobutton(mode_frame, text="A pé", variable=perfil_var, value="foot").pack(side="left", padx=6)
     tk.Radiobutton(mode_frame, text="Bicicleta", variable=perfil_var, value="bike").pack(side="left", padx=6)
-    tk.Radiobutton(mode_frame, text="Ônibus", variable=perfil_var, value="bus").pack(side="left", padx=6)
     
     btn_frame = tk.Frame(frame)
     btn_frame.pack(fill="x", pady=(10, 0))
     btn = tk.Button(btn_frame, text="Gerar rota e abrir mapa", width=24,
-                command=lambda: buscar_e_mostrar(entry_origin, combo_dest, use_gps_var, perfil_var))
+                command=lambda: buscar_e_mostrar(entry_origin, combo_dest, use_gps_var, perfil_var, exibir_nomes))
     btn.pack(side="left", padx=(0, 8))
 
     info_label = tk.Label(frame, text="O mapa com rota abrirá em uma janela separada.\nCaso o GPS não funcione, será usado IP para localizar você.", fg="gray")
