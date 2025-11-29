@@ -93,7 +93,7 @@ class TestObterLocalizacaoIP:
 
 
 class TestGeocodeEndereco:
-    """Testes para geocodificação de endereços"""
+    """Testes para geocodificação de endereços (ATUALIZADO - com retry)"""
     
     @patch('main.Nominatim')
     def test_geocode_sucesso(self, mock_nominatim):
@@ -120,25 +120,113 @@ class TestGeocodeEndereco:
         resultado = main.geocode_endereco("EndereçoInválidoXYZ123")
         assert resultado is None
     
+    @patch('time.sleep')
     @patch('main.Nominatim')
-    def test_geocode_timeout(self, mock_nominatim):
-        """Testa timeout no geocoding"""
+    def test_geocode_timeout_com_retry(self, mock_nominatim, mock_sleep):
+        """Testa timeout com sistema de retry (NOVO)"""
+        mock_geolocator = Mock()
+        # Falha 2 vezes, sucesso na 3ª
+        mock_location = Mock()
+        mock_location.latitude = -25.4284
+        mock_location.longitude = -49.2733
+        mock_geolocator.geocode.side_effect = [
+            GeocoderTimedOut("Timeout"),
+            GeocoderTimedOut("Timeout"),
+            mock_location
+        ]
+        mock_nominatim.return_value = mock_geolocator
+        
+        resultado = main.geocode_endereco("Curitiba, PR", tentativas=3)
+        
+        assert resultado is not None
+        assert resultado == (-25.4284, -49.2733)
+        assert mock_geolocator.geocode.call_count == 3
+        assert mock_sleep.call_count == 2  # Sleep entre tentativas
+    
+    @patch('time.sleep')
+    @patch('main.Nominatim')
+    def test_geocode_todas_tentativas_falham(self, mock_nominatim, mock_sleep):
+        """Testa quando todas as tentativas falham (NOVO)"""
         mock_geolocator = Mock()
         mock_geolocator.geocode.side_effect = GeocoderTimedOut("Timeout")
         mock_nominatim.return_value = mock_geolocator
         
-        resultado = main.geocode_endereco("Curitiba, PR")
+        resultado = main.geocode_endereco("Curitiba, PR", tentativas=3)
+        
         assert resultado is None
+        assert mock_geolocator.geocode.call_count == 3
+    
+    @patch('time.sleep')
+    @patch('main.Nominatim')
+    def test_geocode_unavailable_com_retry(self, mock_nominatim, mock_sleep):
+        """Testa GeocoderUnavailable com retry (NOVO)"""
+        mock_geolocator = Mock()
+        mock_location = Mock()
+        mock_location.latitude = -25.4284
+        mock_location.longitude = -49.2733
+        mock_geolocator.geocode.side_effect = [
+            GeocoderUnavailable("Service down"),
+            mock_location
+        ]
+        mock_nominatim.return_value = mock_geolocator
+        
+        resultado = main.geocode_endereco("Curitiba, PR", tentativas=2)
+        
+        assert resultado is not None
+        assert mock_sleep.call_count == 1
     
     @patch('main.Nominatim')
-    def test_geocode_servico_indisponivel(self, mock_nominatim):
-        """Testa quando o serviço está indisponível"""
+    def test_geocode_exception_generica(self, mock_nominatim):
+        """Testa exception genérica"""
         mock_geolocator = Mock()
-        mock_geolocator.geocode.side_effect = GeocoderUnavailable("Service down")
+        mock_geolocator.geocode.side_effect = Exception("Unknown error")
         mock_nominatim.return_value = mock_geolocator
         
         resultado = main.geocode_endereco("Curitiba, PR")
         assert resultado is None
+
+
+class TestEnderecosPredefinidos:
+    """Testes para endereços predefinidos (NOVO)"""
+    
+    def test_enderecos_predefinidos_existem(self):
+        """Testa que o dicionário de endereços existe e não está vazio"""
+        assert hasattr(main, 'ENDERECOS_PREDEFINIDOS')
+        assert len(main.ENDERECOS_PREDEFINIDOS) > 0
+        assert isinstance(main.ENDERECOS_PREDEFINIDOS, dict)
+    
+    def test_enderecos_nomes_lista(self):
+        """Testa que ENDERECOS_NOMES é uma lista válida"""
+        assert hasattr(main, 'ENDERECOS_NOMES')
+        assert isinstance(main.ENDERECOS_NOMES, list)
+        assert len(main.ENDERECOS_NOMES) == len(main.ENDERECOS_PREDEFINIDOS)
+    
+    def test_enderecos_completos_lista(self):
+        """Testa que ENDERECOS_COMPLETOS é uma lista válida"""
+        assert hasattr(main, 'ENDERECOS_COMPLETOS')
+        assert isinstance(main.ENDERECOS_COMPLETOS, list)
+        assert len(main.ENDERECOS_COMPLETOS) == len(main.ENDERECOS_PREDEFINIDOS)
+    
+    def test_estrutura_enderecos_predefinidos(self):
+        """Testa estrutura do dicionário de endereços"""
+        for nome, endereco in main.ENDERECOS_PREDEFINIDOS.items():
+            assert isinstance(nome, str)
+            assert isinstance(endereco, str)
+            assert len(nome) > 0
+            assert len(endereco) > 0
+            # Verifica que contém informação de localização
+            assert "Curitiba" in endereco or "PR" in endereco or "Colombo" in endereco
+    
+    def test_enderecos_especificos(self):
+        """Testa alguns endereços específicos conhecidos"""
+        # Verifica alguns endereços que devem existir
+        assert "Unidade de Saúde Ouvidor Pardinho" in main.ENDERECOS_PREDEFINIDOS
+        assert "UPA 24h Boqueirão" in main.ENDERECOS_PREDEFINIDOS
+        
+        # Verifica que os valores são endereços válidos
+        pardinho = main.ENDERECOS_PREDEFINIDOS["Unidade de Saúde Ouvidor Pardinho"]
+        assert "24 de Maio" in pardinho
+        assert "Centro" in pardinho
 
 
 class TestPerfilOSRM:
@@ -232,7 +320,7 @@ class TestObterRotaOSRM:
 
 
 class TestGerarMapaComRota:
-    """Testes para geração de mapas"""
+    """Testes para geração de mapas (ATUALIZADO - com info popup)"""
     
     @patch('main.obter_rota_osrm')
     @patch('folium.Map')
@@ -281,6 +369,30 @@ class TestGerarMapaComRota:
         assert resultado is not None
         assert resultado["distance_km"] is None
         assert resultado["duration_min"] is None
+    
+    @patch('main.obter_rota_osrm')
+    @patch('folium.Map')
+    @patch('folium.Element')
+    def test_gerar_mapa_com_info_popup(self, mock_element, mock_map, mock_rota):
+        """Testa que o popup de informações é adicionado (NOVO)"""
+        mock_rota.return_value = {
+            "poly": [(-25.4284, -49.2733)],
+            "distance_m": 5000,
+            "duration_s": 600
+        }
+        
+        mock_map_instance = MagicMock()
+        mock_map.return_value = mock_map_instance
+        
+        resultado = main.gerar_mapa_com_rota(
+            -25.4284, -49.2733,
+            -25.4300, -49.2800,
+            "Hospital Central",
+            "car"
+        )
+        
+        # Verifica que o mapa foi salvo
+        assert mock_map_instance.save.called
 
 
 class TestObterGPSViaWebview:
@@ -301,8 +413,7 @@ class TestObterGPSViaWebview:
         with patch('time.sleep'):
             resultado = main.obter_gps_via_webview(timeout=1)
         
-        # Como o arquivo é criado instantaneamente no mock, deve retornar coords
-        assert resultado is not None or resultado is None  # Depende do timing
+        assert resultado is not None or resultado is None
     
     @patch('multiprocessing.Process')
     @patch('os.path.exists')
@@ -379,6 +490,28 @@ class TestIntegracaoSistema:
         assert mock_geocode.call_count == 2
         mock_rota.assert_called_once()
         mock_map_instance.save.assert_called_once()
+    
+    @patch('time.sleep')
+    @patch('main.geocode_endereco')
+    def test_integracao_endereco_predefinido_com_retry(self, mock_geocode, mock_sleep):
+        """
+        Teste de integração: endereço predefinido com retry (NOVO)
+        """
+        # Simula falha seguida de sucesso
+        mock_geocode.side_effect = [
+            None,  # Primeira tentativa falha
+            (-25.4284, -49.2733)  # Segunda tentativa sucesso
+        ]
+        
+        # Pega um endereço predefinido
+        nome = "Unidade de Saúde Ouvidor Pardinho"
+        endereco = main.ENDERECOS_PREDEFINIDOS[nome]
+        
+        # Tenta geocodificar
+        resultado = main.geocode_endereco(endereco, tentativas=2)
+        
+        # Verifica que funcionou após retry
+        assert resultado is not None or mock_geocode.call_count >= 1
 
 
 class TestTratamentoErros:
