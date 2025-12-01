@@ -320,7 +320,7 @@ class TestObterRotaOSRM:
 
 
 class TestGerarMapaComRota:
-    """Testes para geração de mapas (ATUALIZADO - com info popup)"""
+    """Testes para geração de mapas"""
     
     @patch('main.obter_rota_osrm')
     @patch('folium.Map')
@@ -434,8 +434,9 @@ class TestIntegracaoSistema:
     @patch('main.geocode_endereco')
     @patch('main.obter_rota_osrm')
     @patch('folium.Map')
+    @patch('folium.Element')
     def test_fluxo_completo_geocoding_rota_mapa(
-        self, mock_map, mock_rota, mock_geocode, mock_conexao
+        self, mock_element, mock_map, mock_rota, mock_geocode, mock_conexao
     ):
         """
         Teste de integração: fluxo completo de geocodificação + rota + mapa
@@ -454,6 +455,7 @@ class TestIntegracaoSistema:
             "raw": {}
         }
         mock_map_instance = MagicMock()
+        mock_map_instance.get_root.return_value.html.add_child = MagicMock()
         mock_map.return_value = mock_map_instance
         
         # Execução: simula fluxo completo
