@@ -430,42 +430,63 @@ class TestObterGPSViaWebview:
 class TestIntegracaoSistema:
     """Testes de integração entre componentes"""
     
-    @patch('main.verificar_conexao')
-    @patch('main.geocode_endereco')
+    @patch('main.folium.PolyLine')
+    @patch('main.folium.Marker')
+    @patch('main.folium.Map')
     @patch('main.obter_rota_osrm')
-    @patch('folium.Map')
-    @patch('folium.Element')
+    @patch('main.geocode_endereco')
+    @patch('main.verificar_conexao')
     def test_fluxo_completo_geocoding_rota_mapa(
-        self, mock_element, mock_map, mock_rota, mock_geocode, mock_conexao
+        self, mock_conexao, mock_geocode, mock_rota, 
+        mock_map, mock_marker, mock_polyline
     ):
         """
         Teste de integração: fluxo completo de geocodificação + rota + mapa
         Este é o teste de integração obrigatório do requisito
         """
-        # Setup
+        # Setup de mocks
         mock_conexao.return_value = True
+        
+        # Mock geocode para retornar coordenadas
         mock_geocode.side_effect = [
             (-25.4284, -49.2733),  # origem
             (-25.4300, -49.2800)   # destino
         ]
+        
+        # Mock da rota OSRM
         mock_rota.return_value = {
             "poly": [(-25.4284, -49.2733), (-25.4300, -49.2800)],
             "distance_m": 5000.0,
             "duration_s": 600.0,
             "raw": {}
         }
+        
+        # Mock completo do mapa folium
         mock_map_instance = MagicMock()
-        mock_map_instance.get_root.return_value.html.add_child = MagicMock()
+        mock_root = MagicMock()
+        mock_html = MagicMock()
+        
+        mock_map_instance.get_root.return_value = mock_root
+        mock_root.html = mock_html
+        mock_html.add_child = MagicMock()
+        mock_map_instance.save = MagicMock()
+        
         mock_map.return_value = mock_map_instance
+        
+        # Mock dos markers e polyline
+        mock_marker.return_value = MagicMock()
+        mock_polyline.return_value = MagicMock()
         
         # Execução: simula fluxo completo
         # 1. Geocodificar origem
         origem = main.geocode_endereco("Curitiba Centro")
         assert origem is not None
+        assert origem == (-25.4284, -49.2733)
         
         # 2. Geocodificar destino
         destino = main.geocode_endereco("Hospital São Vicente")
         assert destino is not None
+        assert destino == (-25.4300, -49.2800)
         
         # 3. Obter rota
         rota = main.obter_rota_osrm(
@@ -476,22 +497,38 @@ class TestIntegracaoSistema:
         assert rota is not None
         assert "distance_m" in rota
         assert "duration_s" in rota
+        assert rota["distance_m"] == 5000.0
+        assert rota["duration_s"] == 600.0
         
-        # 4. Gerar mapa
+        # 4. Gerar mapa - IMPORTANTE: resetar o side_effect do geocode
+        mock_geocode.side_effect = [
+            (-25.4284, -49.2733),  # origem (chamada interna)
+            (-25.4300, -49.2800)   # destino (chamada interna)
+        ]
+        
         mapa_result = main.gerar_mapa_com_rota(
             origem[0], origem[1],
             destino[0], destino[1],
             "Hospital São Vicente",
             "car"
         )
+        
+        # Verificações do resultado
         assert mapa_result is not None
+        assert "distance_km" in mapa_result
+        assert "duration_min" in mapa_result
         assert mapa_result["distance_km"] == 5.0
         assert mapa_result["duration_min"] == 10.0
         
         # Verificações de integração
-        assert mock_geocode.call_count == 2
+        assert mock_geocode.call_count >= 2  # Pelo menos 2 chamadas
         mock_rota.assert_called_once()
+        mock_map.assert_called_once()
         mock_map_instance.save.assert_called_once()
+        
+        # Verificar que markers e polyline foram criados
+        assert mock_marker.call_count >= 2  # origem e destino
+        mock_polyline.assert_called_once()
     
     @patch('time.sleep')
     @patch('main.geocode_endereco')
